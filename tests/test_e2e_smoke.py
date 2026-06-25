@@ -1,7 +1,7 @@
 """End-to-end smoke test — runs the full pipeline on a short video.
 
-Requires: test video at ~/Desktop/deskpet测试素材/IMG_0847.MOV
-Run:  python -m pytest tests/test_e2e_smoke.py -v
+Requires: set REALPET_TEST_VIDEO env var to a .mov/.mp4 with a pet.
+Run:  REALPET_TEST_VIDEO=path/to/video.mov python -m pytest tests/test_e2e_smoke.py -v
 """
 import os
 import sys
@@ -11,7 +11,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-TEST_VIDEO = os.path.expanduser("~/Desktop/deskpet测试素材/IMG_0847.MOV")
+TEST_VIDEO = os.environ.get("REALPET_TEST_VIDEO", "")
 
 
 @pytest.mark.skipif(not os.path.exists(TEST_VIDEO), reason="Test video not found")

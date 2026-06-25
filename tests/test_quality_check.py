@@ -12,7 +12,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-TEST_VIDEO = os.path.expanduser("~/Desktop/deskpet测试素材/IMG_0847.MOV")
+TEST_VIDEO = os.environ.get("REALPET_TEST_VIDEO", "")
 
 
 def _make_frame(h=480, w=640, brightness=128):
