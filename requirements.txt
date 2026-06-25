@@ -1,0 +1,8 @@
+torch>=2.0
+torchvision>=0.15
+transformers
+numpy
+Pillow
+opencv-python-headless
+requests
+pyobjc-framework-Cocoa

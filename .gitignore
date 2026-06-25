@@ -1,0 +1,40 @@
+# Swift build
+.build/
+dist/
+*.dSYM/
+
+# Weights (downloaded at runtime, not committed)
+weights/*.pt
+weights/*.pth
+weights/*.pkl
+weights/sam2/
+
+# Pipeline output
+output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+*.env.local
+
+# Claude
+.claude/
+
+# Pets runtime data
+pets/

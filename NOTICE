@@ -1,0 +1,46 @@
+# Third-Party Notices
+
+RealPet uses the following open-source projects:
+
+## SAM 2 (Segment Anything Model 2)
+- **License**: Apache License 2.0
+- **Copyright**: Meta Platforms, Inc. and affiliates
+- **URL**: https://github.com/facebookresearch/sam2
+- **Used for**: Video object tracking and segmentation
+
+## BiRefNet / BiRefNet-matting
+- **License**: MIT
+- **Copyright**: ZhengPeng7
+- **URL**: https://github.com/ZhengPeng7/BiRefNet
+- **HuggingFace**: https://huggingface.co/ZhengPeng7/BiRefNet-matting
+- **Used for**: High-quality image matting and alpha extraction
+
+## PyTorch / torchvision
+- **License**: BSD 3-Clause
+- **Copyright**: Facebook, Inc. (Meta) and its affiliates
+- **URL**: https://github.com/pytorch/pytorch
+- **Used for**: Deep learning framework and object detection (Faster R-CNN)
+
+## transformers (Hugging Face)
+- **License**: Apache License 2.0
+- **Copyright**: Hugging Face, Inc.
+- **URL**: https://github.com/huggingface/transformers
+- **Used for**: Loading BiRefNet model via AutoModelForImageSegmentation
+
+## OpenCV (opencv-python-headless)
+- **License**: Apache License 2.0
+- **Copyright**: OpenCV team
+- **URL**: https://github.com/opencv/opencv
+- **Used for**: Image processing and computer vision operations
+
+## NumPy
+- **License**: BSD 3-Clause
+- **Copyright**: NumPy Developers
+- **URL**: https://github.com/numpy/numpy
+- **Used for**: Numerical computation
+
+## Pillow
+- **License**: MIT-CMU
+- **Copyright**: Alex Clark and contributors
+- **URL**: https://github.com/python-pillow/Pillow
+- **Used for**: Image I/O
