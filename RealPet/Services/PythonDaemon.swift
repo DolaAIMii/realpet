@@ -29,7 +29,7 @@ final class PythonDaemon: ObservableObject {
     func start() {
         guard process == nil else { return }
 
-        guard let python = PythonBridge.findTrackMattePython() ?? PythonBridge.findPython() else {
+        guard let python = PythonBridge.findTrackMattePython() else {
             PythonBridge.log("PythonDaemon: no Python found")
             return
         }

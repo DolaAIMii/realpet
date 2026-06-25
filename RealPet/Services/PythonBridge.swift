@@ -11,9 +11,9 @@ class PythonBridge: ObservableObject {
     private var process: Process?
     private var buffer = ""
 
-    /// Resident daemon for QC / detect (Phase 1).  Set by AppDelegate after
+    /// Resident daemon for QC / detect.  Set by AppDelegate after
     /// creating both objects.  When nil or not ready, callers fall back to
-    /// the legacy subprocess path.
+    /// subprocess.
     weak var daemon: PythonDaemon?
 
     static let projectRoot: URL = {
@@ -99,7 +99,17 @@ class PythonBridge: ObservableObject {
         return env
     }
 
-    /// Find Python for the new Track-then-Matte pipeline (SAM2 venv with Python 3.10+)
+    /// Find a system Python 3 (for scripts that need PyObjC, not the SAM2 venv).
+    static func findSystemPython() -> URL? {
+        for path in ["/usr/bin/python3", "/opt/homebrew/bin/python3", "/usr/local/bin/python3"] {
+            if FileManager.default.isExecutableFile(atPath: path) {
+                return URL(fileURLWithPath: path)
+            }
+        }
+        return nil
+    }
+
+    /// Find Python for the Track-then-Matte pipeline (SAM2 venv with Python 3.10+)
     static func findTrackMattePython() -> URL? {
         let venvPython = venvDir + "/bin/python"
         if FileManager.default.isExecutableFile(atPath: venvPython) {
@@ -108,78 +118,22 @@ class PythonBridge: ObservableObject {
         return nil
     }
 
-    /// Find Python for legacy pipeline (system Python 3.9 with rembg)
-    static func findPython() -> URL? {
-        let paths = [
-            "/usr/bin/python3",
-            "/opt/homebrew/bin/python3",
-            "/usr/local/bin/python3"
-        ]
-        for path in paths {
-            guard FileManager.default.isExecutableFile(atPath: path) else { continue }
-            let proc = Process()
-            proc.executableURL = URL(fileURLWithPath: path)
-            proc.arguments = ["-c", "import rembg"]
-            proc.standardOutput = FileHandle.nullDevice
-            proc.standardError = FileHandle.nullDevice
-            try? proc.run()
-            proc.waitUntilExit()
-            if proc.terminationStatus == 0 {
-                return URL(fileURLWithPath: path)
-            }
-        }
-        return nil
-    }
-
     static func checkDeps(completion: @escaping (Bool, [String], Bool) -> Void) {
-        // Check if Track-then-Matte venv is available
         if findTrackMattePython() != nil {
             completion(true, [], true)
-            return
-        }
-        // Fallback to legacy Python
-        guard let python = findPython() else {
-            completion(false, ["python3"], false)
-            return
-        }
-
-        let script = projectRoot.appendingPathComponent("pipeline/check_deps.py")
-        let proc = Process()
-        proc.executableURL = python
-        proc.arguments = [script.path]
-
-        let pipe = Pipe()
-        proc.standardOutput = pipe
-        proc.standardError = FileHandle.nullDevice
-
-        do {
-            try proc.run()
-            proc.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                let ok = json["ok"] as? Bool ?? false
-                let missing = json["missing"] as? [String] ?? []
-                let coreml = json["coreml"] as? Bool ?? false
-                completion(ok, missing, coreml)
-            } else {
-                completion(false, ["unknown"], false)
-            }
-        } catch {
-            completion(false, ["python3"], false)
+        } else {
+            completion(false, ["python3 (with sam2 venv)"], false)
         }
     }
 
     func startProcessing(videoPath: String, outputDir: String, useCoreML: Bool = true) {
         guard !isProcessing else { return }
 
-        // Prefer Track-then-Matte pipeline
-        if let python = Self.findTrackMattePython() {
-            startTrackMatte(python: python, videoPath: videoPath, outputDir: outputDir)
-        } else if let python = Self.findPython() {
-            startLegacy(python: python, videoPath: videoPath, outputDir: outputDir, useCoreML: useCoreML)
-        } else {
-            error = "Python not found"
+        guard let python = Self.findTrackMattePython() else {
+            error = "Python not found. Run ./install.sh first."
+            return
         }
+        startTrackMatte(python: python, videoPath: videoPath, outputDir: outputDir)
     }
 
     /// Analyze a video for clip-selection candidates (long videos). Returns the
@@ -187,7 +141,7 @@ class PythonBridge: ObservableObject {
     func analyzeClips(videoPath: String, outputDir: String,
                       maxSeconds: Double = 15,
                       completion: @escaping ([String: Any]?) -> Void) {
-        guard let python = Self.findTrackMattePython() ?? Self.findPython() else {
+        guard let python = Self.findTrackMattePython() else {
             completion(nil); return
         }
         let script = Self.projectRoot.appendingPathComponent("scripts/analyze_clips.py")
@@ -264,7 +218,7 @@ class PythonBridge: ObservableObject {
     private func qualityCheckSubprocess(videoPath: String, outputDir: String,
                                         completion: @escaping ([String: Any]?) -> Void) {
         Self.log("qualityCheck via subprocess (daemon unavailable)")
-        guard let python = Self.findTrackMattePython() ?? Self.findPython() else {
+        guard let python = Self.findTrackMattePython() else {
             completion(nil); return
         }
         let script = Self.projectRoot.appendingPathComponent("scripts/quality_check.py")
@@ -305,11 +259,11 @@ class PythonBridge: ObservableObject {
         }
     }
 
-    /// Append a line to /tmp/deskpet_pybridge.log for debugging the .app
+    /// Append a line to /tmp/realpet_pybridge.log for debugging the .app
     /// (where stdout/stderr aren't visible).
     static func log(_ msg: String) {
         let line = "[\(Date())] \(msg)\n"
-        let path = "/tmp/deskpet_pybridge.log"
+        let path = "/tmp/realpet_pybridge.log"
         if let h = FileHandle(forWritingAtPath: path) {
             h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); h.closeFile()
         } else {
@@ -359,7 +313,7 @@ class PythonBridge: ObservableObject {
     private func detectPetSubprocess(videoPath: String, outputDir: String, startTime: Double,
                                      completion: @escaping ([String: Any]?) -> Void) {
         Self.log("detectPet via subprocess (daemon unavailable)")
-        guard let python = Self.findTrackMattePython() ?? Self.findPython() else {
+        guard let python = Self.findTrackMattePython() else {
             completion(nil)
             return
         }
@@ -391,11 +345,11 @@ class PythonBridge: ObservableObject {
                     let out = String(data: data, encoding: .utf8) ?? ""
                     let err = String(data: errData, encoding: .utf8) ?? ""
                     let log = "[detectPet] exit=\(proc.terminationStatus)\nSTDOUT:\n\(out)\nSTDERR:\n\(err)\n"
-                    try? log.write(toFile: "/tmp/deskpet_pybridge.log", atomically: true, encoding: .utf8)
+                    try? log.write(toFile: "/tmp/realpet_pybridge.log", atomically: true, encoding: .utf8)
                 }
             } catch {
                 try? "[detectPet] proc.run() threw: \(error)\n".write(
-                    toFile: "/tmp/deskpet_pybridge.log", atomically: true, encoding: .utf8)
+                    toFile: "/tmp/realpet_pybridge.log", atomically: true, encoding: .utf8)
             }
             DispatchQueue.main.async { completion(parsed) }
         }
@@ -443,27 +397,6 @@ class PythonBridge: ObservableObject {
             "--max-seconds", "15"
         ]
         proc.environment = Self.subprocessEnvironment()
-
-        startProcess(proc)
-    }
-
-    private func startLegacy(python: URL, videoPath: String, outputDir: String, useCoreML: Bool) {
-        let script = Self.projectRoot.appendingPathComponent("pipeline/cli.py")
-        fputs("DEBUG: legacy python=\(python.path) script=\(script.path)\n", stderr)
-
-        let proc = Process()
-        proc.executableURL = python
-        proc.arguments = [
-            script.path,
-            "--video", videoPath,
-            "--output-dir", outputDir,
-            "--fps", "24",
-            "--use-coreml",
-            "--cleanup"
-        ]
-
-        proc.environment = ProcessInfo.processInfo.environment
-        proc.environment?["PYTHONPATH"] = Self.projectRoot.path
 
         startProcess(proc)
     }

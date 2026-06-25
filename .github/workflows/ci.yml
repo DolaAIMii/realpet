@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  swift:
+    name: Swift Build
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: cd RealPet && swift build -c release
+      - name: Test build
+        run: cd RealPet && swift build
+
+  python:
+    name: Python Tests
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff
+      - name: Lint
+        run: ruff check scripts/ pipeline/ tests/ --select E,F,W --ignore E501
+      - name: Run tests (unit only)
+        run: pytest tests/test_quality_check.py tests/test_pet_detector.py -v --timeout=60
+        env:
+          REALPET_WEIGHTS_DIR: /tmp/weights

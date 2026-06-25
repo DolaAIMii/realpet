@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="RealPet"
-BUILD_DIR="$SCRIPT_DIR/DeskPet/.build/release"
+BUILD_DIR="$SCRIPT_DIR/RealPet/.build/release"
 DIST_DIR="$SCRIPT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 
@@ -17,7 +17,7 @@ echo ""
 
 # 1. Swift release build
 echo "--- Building Swift ---"
-cd "$SCRIPT_DIR/DeskPet"
+cd "$SCRIPT_DIR/RealPet"
 swift build -c release 2>&1 | tail -3
 ok "Swift build complete"
 

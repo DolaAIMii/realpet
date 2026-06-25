@@ -14,7 +14,7 @@ class PetLauncher: ObservableObject {
     /// preview → final swap — the old process is replaced WITHOUT emitting a
     /// spurious `.petStopped` (which would otherwise flip the pet to "ready").
     func launch(petId: UUID, framesDir: String, fps: Int) {
-        guard let python = PythonBridge.findPython() else { return }
+        guard let python = PythonBridge.findSystemPython() else { return }
 
         let script = PythonBridge.projectRoot.appendingPathComponent("pipeline/pet_runner.py")
 

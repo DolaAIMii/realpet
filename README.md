@@ -32,7 +32,7 @@ cd realpet
 ./install.sh
 
 # Run
-cd DeskPet && swift run
+cd RealPet && swift run
 ```
 
 Import a video of your pet through the app's Import button, and RealPet will extract, segment, and display it as a desktop companion.
@@ -68,7 +68,7 @@ Import a video of your pet through the app's Import button, and RealPet will ext
 
 ```
 realpet/
-├── DeskPet/              # Swift macOS app
+├── RealPet/              # Swift macOS app
 │   ├── Services/         # PythonBridge, PythonDaemon, PetStorage
 │   ├── ViewModels/       # PetListViewModel
 │   ├── Views/            # MainPanelView, PetRowView

@@ -23,7 +23,7 @@ def _get_birefnet():
     from transformers import AutoModelForImageSegmentation
 
     _birefnet_model = AutoModelForImageSegmentation.from_pretrained(
-        "ZhengPeng7/BiRefNet", trust_remote_code=True
+        "ZhengPeng7/BiRefNet-matting", trust_remote_code=True
     )
     _birefnet_model.to("mps")
     _birefnet_model.eval()
