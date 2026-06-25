@@ -21,6 +21,33 @@ RealPet uses SAM2 video tracking + BiRefNet matting to extract your pet from any
 - ffmpeg (for video frame extraction)
 - ~2GB free disk space (model weights)
 
+> **⚠️ Windows is not supported.** The app uses Swift/AppKit/SwiftUI and Apple's Metal GPU framework (MPS). The Python pipeline could theoretically run on other platforms, but the desktop app requires macOS.
+
+### Performance Recommendations
+
+RealPet runs real-time AI models (SAM2 tracking + BiRefNet matting + Faster R-CNN detection) on every frame. Performance matters.
+
+| Component | Minimum | Recommended | Notes |
+|-----------|---------|-------------|-------|
+| **Chip** | Apple M1 | Apple M1 Pro or better | MPS (Metal) GPU acceleration is critical. Intel Macs work but are **significantly slower** (CPU-only inference ~5-10× slower). |
+| **Memory** | 8GB | 16GB+ | SAM2 + BiRefNet + Faster R-CNN models together use ~3-4GB. With the OS and app, 8GB gets tight. 16GB gives comfortable headroom. |
+| **Disk** | 2GB free | 5GB+ free | Model weights: SAM2 ~156MB, BiRefNet ~900MB, Faster R-CNN ~175MB. Plus space for extracted frames and output. |
+| **GPU** | Apple M1 integrated | Apple M1 Pro/Max/Ultra or M2/M3/M4 | More GPU cores = faster inference. M1 base (~8 GPU cores) processes ~1 frame/2s. M1 Pro+ (~16 cores) processes ~1 frame/1s. |
+
+**Processing time estimates (10-second video):**
+
+| Chip | QC Gate | Pet Detection | Full Pipeline |
+|------|---------|---------------|---------------|
+| M1 (8 GPU) | ~4s | ~3s | ~60-90s |
+| M1 Pro (16 GPU) | ~2s | ~1.5s | ~30-45s |
+| M2 Pro/M3 Pro | ~1.5s | ~1s | ~20-35s |
+
+**If processing feels slow:**
+- Use shorter videos (5-15 seconds is ideal)
+- Close other GPU-intensive apps (Final Cut, games, etc.)
+- Ensure you're on Apple Silicon (Intel Macs will be very slow)
+- The app shows progress — SAM2 tracking is the longest step
+
 ## Quick Start
 
 ```bash
