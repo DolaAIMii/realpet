@@ -575,7 +575,7 @@ def extract_frames(video_path, output_dir, fps=10):
 # IMPORTANT: "subject-locked" stabilization (align every pet centroid) is FORBIDDEN
 # here — would erase natural pet motion. Use trajectory smoothing only.
 
-STABILIZE = True
+STABILIZE = False  # disabled per PET_STABILIZATION_PARTC: residual motion is real body motion, not pipeline jitter
 STABILIZE_SMOOTH_RADIUS = 30   # ~3s @ 10fps; 15/30/45 swept in spike
 STABILIZE_ZOOM = 1.04          # cover border artifacts; small enough not to hurt canvas
 # PARTC §1 (2026-06-20): gate raised 1.2 → 2.5. IMG_0847 source residual is
