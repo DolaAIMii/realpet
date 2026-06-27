@@ -52,7 +52,7 @@ RealPet runs real-time AI models (SAM2 tracking + BiRefNet matting + Faster R-CN
 
 ```bash
 # Clone
-git clone https://github.com/yourname/realpet.git
+git clone https://github.com/DolaAIMii/realpet.git
 cd realpet
 
 # Install dependencies
@@ -96,14 +96,18 @@ Import a video of your pet through the app's Import button, and RealPet will ext
 ```
 realpet/
 ├── RealPet/              # Swift macOS app
-│   ├── Services/         # PythonBridge, PythonDaemon, PetStorage
+│   ├── DeskPetApp.swift  # App entry (file name kept for SwiftPM target)
+│   ├── Models/           # Pet model
+│   ├── Services/         # PetLauncher, PetStorage, PythonBridge, PythonDaemon
 │   ├── ViewModels/       # PetListViewModel
 │   ├── Views/            # MainPanelView, PetRowView
 │   └── Package.swift
 ├── pipeline/             # Python AI pipeline
 │   ├── pet_detector.py   # Faster R-CNN pet detection
 │   ├── segment.py        # BiRefNet segmentation
-│   └── display.py        # Transparent window rendering
+│   ├── display.py        # Transparent window rendering
+│   ├── cli.py            # AI-animate pipeline entry
+│   └── smart_clip.py     # Long-video clip selection
 ├── scripts/              # CLI tools
 │   ├── track_then_matte.py  # Main pipeline (SAM2 + BiRefNet)
 │   ├── detect_pet.py     # Pet detection
@@ -111,6 +115,7 @@ realpet/
 │   ├── analyze_clips.py  # Clip selection for long videos
 │   ├── daemon.py         # Resident Python worker
 │   └── download_weights.py # Weight downloader
+├── tests/                # Unit tests (pytest)
 ├── weights/              # Model weights (git-ignored, downloaded)
 ├── requirements.txt      # Python dependencies
 ├── install.sh            # One-click installer
