@@ -19,9 +19,31 @@ RealPet uses SAM2 video tracking + BiRefNet matting to extract your pet from any
 - macOS 14.0+ (Sonoma)
 - Python 3.10+ (for the AI pipeline)
 - ffmpeg (for video frame extraction)
+- Xcode Command Line Tools (Swift compiler): `xcode-select --install`
 - ~2GB free disk space (model weights)
 
 > **⚠️ Windows is not supported.** The app uses Swift/AppKit/SwiftUI and Apple's Metal GPU framework (MPS). The Python pipeline could theoretically run on other platforms, but the desktop app requires macOS.
+
+### First-run network requirement
+
+The first time you launch the app (or run the pipeline), it downloads the
+SAM2 checkpoint (~156 MB) and the BiRefNet-matting model from HuggingFace
+(~900 MB). Plan for ~1 GB of downloads on a stable connection.
+
+If HuggingFace is slow or blocked from your region, set a mirror before
+launching:
+
+```bash
+export HF_ENDPOINT=https://hf-mirror.com   # China / restricted networks
+```
+
+(default endpoint is `https://huggingface.co`)
+
+### Tested on
+
+| Date | macOS | Chip | Memory | Notes |
+|------|-------|------|--------|-------|
+| 2026-06-27 | 14.3.1 | Apple M2 Pro | 16 GB | Agent-verified on maintainer's machine; not a clean-machine fresh-clone. See `docs/RELEASE.md` for the reproducibility protocol. |
 
 ### Performance Recommendations
 
