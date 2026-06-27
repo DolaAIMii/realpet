@@ -1,0 +1,130 @@
+name: install-verify
+
+# Long-running regression gate: prove that on a clean macOS runner,
+# a fresh clone of this repo can install and run end-to-end.
+# Catches:
+# - install.sh breaking on Python detection / brew / ffmpeg
+# - SAM2 / BiRefNet / Faster R-CNN weights no longer fetchable
+# - HuggingFace / PyPI regressions
+# - .to("mps") hardcoded crashes on Intel Macs / CI (no MPS)
+# - Swift build breaks
+# - `--help` regresses behind a weight check
+#
+# Design notes:
+# - macos-14 has no MPS acceleration; smoke must work on CPU too.
+#   That's a real Intel-Mac-user path, not just CI convenience.
+# - Caches: HuggingFace (~/.cache/huggingface), SAM2 weights
+#   (repo/weights/sam2/), pip.
+# - We do NOT run the full track_then_matte pipeline here (needs a real
+#   pet video, which we won't bundle — see docs/RELEASE.md "Known gaps").
+#   The model-load smoke is enough to catch dependency / device issues.
+# - Heavy cold-cache run can take ~10 min. Weekly + on-demand only.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Mondays 06:00 UTC
+    - cron: "0 6 * * 1"
+
+jobs:
+  install-verify:
+    runs-on: macos-14
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: Cache HuggingFace (BiRefNet + Faster R-CNN auto-downloads)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+          key: hf-${{ runner.os }}-biirefnet-matting-fasterrcnn-v1
+          restore-keys: |
+            hf-${{ runner.os }}-
+
+      - name: Cache SAM2 weights
+        uses: actions/cache@v4
+        with:
+          path: weights/sam2
+          key: sam2-${{ runner.os }}-${{ hashFiles('scripts/download_weights.py') }}
+          restore-keys: |
+            sam2-${{ runner.os }}-
+
+      - name: Install system dependencies (ffmpeg)
+        run: |
+          brew update
+          brew install ffmpeg
+          ffmpeg -version | head -1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run install.sh (creates venv + installs deps)
+        run: |
+          bash install.sh
+          echo "---"
+          # install.sh creates $VENV_DIR; we want the python it produced
+          VENV_DIR="$HOME/.venvs/realpet"
+          if [ ! -x "$VENV_DIR/bin/python" ]; then
+            echo "::error::install.sh did not produce $VENV_DIR/bin/python"
+            exit 1
+          fi
+          "$VENV_DIR/bin/python" --version
+          "$VENV_DIR/bin/python" -c "import torch, transformers, cv2, PIL, sam2; print('all imports OK')"
+
+      - name: download_weights.py — assert SAM2 + BiRefNet ready
+        env:
+          HF_ENDPOINT: ${{ env.HF_ENDPOINT }}
+        run: |
+          VENV_DIR="$HOME/.venvs/realpet"
+          "$VENV_DIR/bin/python" scripts/download_weights.py
+          echo "---"
+          ls -lh weights/sam2/
+          "$VENV_DIR/bin/python" scripts/download_weights.py --check
+
+      - name: CI inference smoke (BiRefNet + Faster R-CNN, CPU fallback)
+        env:
+          HF_HOME: ${{ runner.temp }}/hf_cache
+        run: |
+          VENV_DIR="$HOME/.venvs/realpet"
+          mkdir -p "$HF_HOME"
+          "$VENV_DIR/bin/python" scripts/ci_inference_smoke.py
+
+      - name: Swift build (release)
+        run: |
+          cd RealPet
+          rm -rf .build/arm64-apple-macosx/release .build/release  # force real build, not cache
+          swift build -c release
+
+      - name: track_then_matte.py --help (must work without weights)
+        run: |
+          VENV_DIR="$HOME/.venvs/realpet"
+          # Rename weights dir so --help can't accidentally find them
+          if [ -d weights/sam2 ]; then
+            mv weights/sam2 weights/sam2.staged
+          fi
+          "$VENV_DIR/bin/python" scripts/track_then_matte.py --help | head -5
+          RC=$?
+          if [ -d weights/sam2.staged ]; then
+            mv weights/sam2.staged weights/sam2
+          fi
+          exit $RC
+
+      - name: Lint
+        run: |
+          pip install ruff
+          ruff check scripts/ pipeline/ tests/ --select E,F,W --ignore E501
