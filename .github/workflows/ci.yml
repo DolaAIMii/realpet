@@ -30,7 +30,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest ruff
+          pip install pytest pytest-timeout ruff
       - name: Lint
         run: ruff check scripts/ pipeline/ tests/ --select E,F,W --ignore E501
       - name: Run tests (unit only)
