@@ -16,19 +16,28 @@ fail() { echo -e "${RED}✗${NC} $1"; exit 1; }
 echo "=== RealPet Installer ==="
 echo ""
 
-# 1. Check Python 3.10+
+# 1. Check Python 3.10+ (prefer 3.12 > 3.11 > 3.10 > system python3)
 echo "--- Checking dependencies ---"
-if command -v python3 &>/dev/null; then
-    PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-    PY_MAJOR=$(echo "$PY_VER" | cut -d. -f1)
-    PY_MINOR=$(echo "$PY_VER" | cut -d. -f2)
-    if [ "$PY_MAJOR" -ge 3 ] && [ "$PY_MINOR" -ge 10 ]; then
-        ok "Python $PY_VER"
-    else
-        fail "Python 3.10+ required, found $PY_VER. Install with: brew install python@3.10"
+PYTHON=""
+for cand in python3.12 python3.11 python3.10 python3; do
+    if command -v "$cand" &>/dev/null; then
+        PY_VER=$("$cand" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+        PY_MAJOR=$(echo "$PY_VER" | cut -d. -f1)
+        PY_MINOR=$(echo "$PY_VER" | cut -d. -f2)
+        if [ "$PY_MAJOR" -ge 3 ] && [ "$PY_MINOR" -ge 10 ]; then
+            PYTHON="$cand"
+            ok "Python $PY_VER ($cand)"
+            break
+        fi
     fi
-else
-    fail "Python 3 not found. Install with: brew install python@3.10"
+done
+if [ -z "$PYTHON" ]; then
+    if command -v python3 &>/dev/null; then
+        CUR=$("python3" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+        fail "Python 3.10+ required, found $CUR (python3). Install with: brew install python@3.12"
+    else
+        fail "Python 3 not found. Install with: brew install python@3.12"
+    fi
 fi
 
 # 2. Check ffmpeg
@@ -45,7 +54,7 @@ if [ -d "$VENV_DIR" ]; then
     warn "Venv already exists at $VENV_DIR, skipping creation"
 else
     echo "Creating venv at $VENV_DIR ..."
-    python3 -m venv "$VENV_DIR"
+    $PYTHON -m venv "$VENV_DIR"
     ok "Venv created"
 fi
 
@@ -95,7 +104,7 @@ echo ""
 echo -e "${GREEN}=== Installation complete! ===${NC}"
 echo ""
 echo "To run the app:"
-echo "  cd DeskPet && $VENV_DIR/bin/python -m swift run"
+echo "  cd RealPet && swift build -c release && swift run"
 echo ""
-echo "Or build the .app:"
+echo "Or build the .app bundle:"
 echo "  ./build_app.sh"
