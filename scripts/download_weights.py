@@ -62,9 +62,21 @@ def download_sam2(force=False):
         return True
     except Exception as e:
         print(f"\nDownload failed: {e}")
-        print("You can manually download from:")
-        print(f"  {SAM2_URL}")
-        print(f"  and place it at: {dest}")
+        err_str = str(e)
+        if "CERTIFICATE_VERIFY_FAILED" in err_str or "certificate verify failed" in err_str.lower():
+            print()
+            print("This usually means your Python install has no CA certificate store.")
+            print("Try one of these (in order):")
+            print("  1. Install Xcode Command Line Tools: xcode-select --install")
+            print("     then run:")
+            print("       /Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python.framework/Versions/Current/Install\\ Certificates.command")
+            print("  2. Or download manually:")
+            print(f"       {SAM2_URL}")
+            print(f"       and place it at: {dest}")
+        else:
+            print("You can manually download from:")
+            print(f"  {SAM2_URL}")
+            print(f"  and place it at: {dest}")
         if os.path.exists(dest):
             os.remove(dest)
         return False
