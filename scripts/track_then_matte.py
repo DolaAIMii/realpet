@@ -718,7 +718,7 @@ def stabilize_frames(frame_paths, smooth_radius=STABILIZE_SMOOTH_RADIUS,
     return list(frame_paths), True, report
 
 
-def pass1_sam2(frames, click_point, progress_callback=None):
+def pass1_sam2(frames, click_point, progress_callback=None, device=None):
     """Pass 1: SAM2 tracking → logit collection.
 
     Runs SAM2 once on ALL frames and returns the per-frame tracking logits.
@@ -730,14 +730,19 @@ def pass1_sam2(frames, click_point, progress_callback=None):
         frames: list of frame paths
         click_point: (x, y) tuple for the pet location
         progress_callback: optional callback(phase, current, total, detail)
+        device: torch device for SAM2; defaults to mps if available else cpu
 
     Returns:
         dict mapping frame_idx → raw logit (float32)
     """
     import torch
 
-    emit({"type": "phase", "name": "sam2_track", "detail": "loading SAM2"})
-    sam2 = load_sam2()
+    if device is None:
+        device = "mps" if torch.backends.mps.is_available() else "cpu"
+
+    emit({"type": "phase", "name": "sam2_track",
+          "detail": f"loading SAM2 (device={device})"})
+    sam2 = load_sam2(device=device)
 
     # Prepare frames for SAM2 (needs numbered files)
     sam2_dir = tempfile.mkdtemp(prefix="sam2_")
@@ -792,7 +797,8 @@ def pass1_sam2(frames, click_point, progress_callback=None):
 
     # Free SAM2 model from GPU memory
     del sam2
-    torch.mps.empty_cache()
+    if torch.backends.mps.is_available():
+        torch.mps.empty_cache()
 
     # Cleanup
     shutil.rmtree(sam2_dir, ignore_errors=True)
@@ -853,7 +859,7 @@ def get_roi_from_logit(logit, h, w, margin=0.10):
     return (x1, y1, x2, y2)
 
 
-def _birefnet_alpha(model, norm_transform, img_bgr, resolution):
+def _birefnet_alpha(model, norm_transform, img_bgr, resolution, device=None):
     """Aspect-preserving BiRefNet alpha for a BGR image/crop.
 
     The pet crop is letterboxed to a square (BORDER_REPLICATE, so no fake
@@ -868,6 +874,9 @@ def _birefnet_alpha(model, norm_transform, img_bgr, resolution):
     import torch
     from PIL import Image
 
+    if device is None:
+        device = next(model.parameters()).device
+
     h, w = img_bgr.shape[:2]
     side = max(h, w)
     top = (side - h) // 2
@@ -879,7 +888,11 @@ def _birefnet_alpha(model, norm_transform, img_bgr, resolution):
 
     inp = norm_transform(
         Image.fromarray(cv2.cvtColor(sq, cv2.COLOR_BGR2RGB))
-    ).unsqueeze(0).to("mps").half()
+    ).unsqueeze(0).to(device)
+    # fp16 only on MPS/CUDA, not CPU (slow on x86/arm).
+    dev_str = str(device)
+    if dev_str.startswith("mps") or dev_str.startswith("cuda"):
+        inp = inp.half()
     with torch.no_grad():
         pred = model(inp)
         if isinstance(pred, (list, tuple)):
@@ -923,7 +936,8 @@ def fb_blur_fusion_fg(image, alpha, r=35):
 
 
 def pass2_birefnet(frames, sam2_logits, output_dir, progress_callback=None,
-                   preview_limit=None, on_preview_ready=None):
+                   preview_limit=None, on_preview_ready=None,
+                   device=None):
     """Pass 2: BiRefNet refinement with ROI cropping → final alpha.
 
     Uses SAM2 mask to crop each frame to the pet region before feeding
@@ -938,8 +952,13 @@ def pass2_birefnet(frames, sam2_logits, output_dir, progress_callback=None,
         preview_limit: if set with on_preview_ready, fire the callback once the
             first N frames are matted (these ARE final frames — preview == final)
         on_preview_ready: callback(n) invoked after the first N frames are saved
+        device: torch device for BiRefNet; defaults to mps if available else cpu
     """
+    import torch
     from torchvision import transforms
+
+    if device is None:
+        device = "mps" if torch.backends.mps.is_available() else "cpu"
 
     # 1024 for ROI crops: crisper edge/fur matte than 768 (sharper alpha gradient,
     # ~10% tighter soft-edge band, more defined fur wisps). Costs ~1.8x the matte
@@ -949,8 +968,8 @@ def pass2_birefnet(frames, sam2_logits, output_dir, progress_callback=None,
     # regardless. This is the edge-precision lever for the soft-edge report.
     roi_resolution = 1024
     emit({"type": "phase", "name": "birefnet_refine",
-          "detail": f"loading BiRefNet (ROI {roi_resolution})"})
-    model, _ = load_birefnet(resolution=roi_resolution)
+          "detail": f"loading BiRefNet (ROI {roi_resolution}, device={device})"})
+    model, _ = load_birefnet(device=device, resolution=roi_resolution)
 
     # Normalize-only transform; resize is done aspect-preserving in
     # _birefnet_alpha (not via the model's bundled square Resize).
@@ -1008,14 +1027,16 @@ def pass2_birefnet(frames, sam2_logits, output_dir, progress_callback=None,
 
             # Aspect-preserving BiRefNet on the pet crop
             alpha_crop = _birefnet_alpha(model, norm_transform,
-                                         img[y1:y2, x1:x2], roi_resolution)
+                                         img[y1:y2, x1:x2], roi_resolution,
+                                         device=device)
             birefnet_alpha = np.zeros((h, w), dtype=np.uint8)
             birefnet_alpha[y1:y2, x1:x2] = alpha_crop
 
             total_pixels_saved += h * w - roi_h * roi_w
         else:
             # No ROI found → aspect-preserving full-frame inference
-            birefnet_alpha = _birefnet_alpha(model, norm_transform, img, roi_resolution)
+            birefnet_alpha = _birefnet_alpha(model, norm_transform, img,
+                                              roi_resolution, device=device)
 
         # SAM2 gate: binary → dilate → blur (original design, verified 06/07)
         # Gate = 1.0 inside pet + margin, 0.0 outside, blurred at edge

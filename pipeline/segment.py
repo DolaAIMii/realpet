@@ -1,6 +1,7 @@
-"""Foreground segmentation using BiRefNet (PyTorch MPS) with alpha post-processing.
+"""Foreground segmentation using BiRefNet with alpha post-processing.
 
-Uses BiRefNet via PyTorch MPS for fast, high-quality segmentation (~1.5s/frame).
+Uses BiRefNet (BiRefNet-matting) on the best available torch device
+(MPS on Apple Silicon, else CPU) for high-quality segmentation.
 """
 import os
 import numpy as np
@@ -13,7 +14,7 @@ _birefnet_transform = None
 
 
 def _get_birefnet():
-    """Lazy-load BiRefNet with PyTorch MPS."""
+    """Lazy-load BiRefNet on the best available device."""
     global _birefnet_model, _birefnet_transform
     if _birefnet_model is not None:
         return _birefnet_model, _birefnet_transform
@@ -22,10 +23,12 @@ def _get_birefnet():
     from torchvision import transforms
     from transformers import AutoModelForImageSegmentation
 
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+
     _birefnet_model = AutoModelForImageSegmentation.from_pretrained(
         "ZhengPeng7/BiRefNet-matting", trust_remote_code=True
     )
-    _birefnet_model.to("mps")
+    _birefnet_model.to(device)
     _birefnet_model.eval()
 
     _birefnet_transform = transforms.Compose([
@@ -35,7 +38,7 @@ def _get_birefnet():
     ])
 
     # Warm up
-    dummy = torch.randn(1, 3, 1024, 1024).to("mps")
+    dummy = torch.randn(1, 3, 1024, 1024).to(device)
     with torch.no_grad():
         _birefnet_model(dummy)
 
@@ -48,11 +51,12 @@ def _birefnet_inference(img_bgr):
     import cv2
 
     model, transform = _get_birefnet()
+    device = next(model.parameters()).device
     h, w = img_bgr.shape[:2]
 
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     pil_img = Image.fromarray(img_rgb)
-    inp = transform(pil_img).unsqueeze(0).to("mps")
+    inp = transform(pil_img).unsqueeze(0).to(device)
 
     with torch.no_grad():
         pred = model(inp)
