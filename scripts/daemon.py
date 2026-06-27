@@ -33,7 +33,6 @@ def _emit(req_id, msg):
 def _handle(req):
     """Dispatch a request and return the terminal result dict (or None)."""
     cmd = req.get("cmd")
-    req_id = req.get("id", -1)
 
     if cmd == "ping":
         return {"ok": True}

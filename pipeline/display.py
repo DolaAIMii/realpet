@@ -1,8 +1,6 @@
 """Transparent desktop pet window using PyObjC + NSWindow with per-pixel alpha."""
 import os
-import sys
 import math
-import io
 import json
 import numpy as np
 from PIL import Image
@@ -10,7 +8,7 @@ from PIL import Image
 import objc
 from Cocoa import (
     NSApplication, NSApp, NSWindow, NSView, NSImage, NSColor, NSBezierPath,
-    NSCursor, NSTimer, NSTrackingArea, NSEvent, NSScreen,
+    NSCursor, NSTrackingArea, NSEvent, NSScreen,
     NSBitmapImageRep, NSDeviceRGBColorSpace, NSBitmapFormatAlphaNonpremultiplied,
     NSBorderlessWindowMask, NSFloatingWindowLevel,
     NSCompositingOperationSourceOver,
@@ -18,7 +16,6 @@ from Cocoa import (
     NSTrackingMouseEnteredAndExited, NSTrackingActiveInActiveApp,
     NSTrackingInVisibleRect,
 )
-from Foundation import NSData
 
 
 # ---------------------------------------------------------------------------
@@ -727,7 +724,7 @@ def display_frames(frame_paths, fps=24, window_size=None, alpha=1.0):
         return
 
     # Initialize NSApplication
-    app = NSApplication.sharedApplication()
+    NSApplication.sharedApplication()
 
     pet = DesktopPet(frame_paths, fps=fps, window_size=window_size, alpha=alpha)
     pet.run()

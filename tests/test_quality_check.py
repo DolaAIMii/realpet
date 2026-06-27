@@ -88,7 +88,6 @@ class TestCheckQuality:
 
     def test_too_bright(self):
         from scripts.track_then_matte import check_quality
-        from scripts.track_then_matte import MAX_OVEREXP_RATIO
         with tempfile.TemporaryDirectory() as d:
             # Fully overexposed frame
             frame = _make_frame(480, 640, brightness=255)

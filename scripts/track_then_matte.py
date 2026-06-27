@@ -273,7 +273,7 @@ def measure_grade_stats(frame_paths, logits=None, sample=8):
         h, w = b.shape[:2]
         Y = _luma_bgr(b)
         Ys.append(Y.ravel())
-        mx = b.max(2); mn = b.min(2)
+        mx = b.max(2); mn = b.min(2)  # noqa: E702  # chroma components for HSV-style saturation
         S = np.where(mx > 1, (mx - mn) / np.maximum(mx, 1), 0)
         Ss.append((S * 255).ravel())
         sharps.append(float(cv2.Laplacian(Y, cv2.CV_32F).var()))
@@ -294,7 +294,7 @@ def measure_grade_stats(frame_paths, logits=None, sample=8):
                     white_refs.append(b[wm].reshape(-1, 3).mean(0))
     if not Ys:
         return None
-    Y = np.concatenate(Ys); S = np.concatenate(Ss)
+    Y = np.concatenate(Ys); S = np.concatenate(Ss)  # noqa: E702  # single-line concat for readability
     return {"p1": float(np.percentile(Y, 1)), "p50": float(np.percentile(Y, 50)),
             "p99": float(np.percentile(Y, 99)), "sat": float(S.mean()),
             "sharp": float(np.mean(sharps)) if sharps else 100.0,
@@ -312,11 +312,11 @@ def compute_grade(st):
     # fall back to gray-world with a TIGHTER clamp (gray-world over-corrects a
     # cast scene — that's what tinted the white fur blue).
     if st.get("white_ref") is not None:
-        bgr = st["white_ref"]; g = bgr[1]
+        bgr = st["white_ref"]; g = bgr[1]  # noqa: E702
         p["wb"] = np.clip(np.array([g / max(bgr[0], 1e-3), 1.0,
                                     g / max(bgr[2], 1e-3)], np.float32), 0.85, 1.15)
     elif st["neutral"] is not None:
-        bgr = st["neutral"]; g = bgr[1]
+        bgr = st["neutral"]; g = bgr[1]  # noqa: E702  # split channel
         p["wb"] = np.clip(np.array([g / max(bgr[0], 1e-3), 1.0,
                                     g / max(bgr[2], 1e-3)], np.float32), 0.92, 1.10)
     # 2) Auto black/white point: hue-preserving affine, partial pull to targets.
@@ -324,7 +324,7 @@ def compute_grade(st):
     nb = p1 + (_GRADE_BLACK - p1) * _GRADE_LEVELS_STRENGTH
     nw = p99 + (_GRADE_WHITE - p99) * _GRADE_LEVELS_STRENGTH
     a = (nw - nb) / max(p99 - p1, 1.0)
-    p["a"] = float(np.clip(a, 0.95, 1.8)); p["b"] = float(nb - a * p1)
+    p["a"] = float(np.clip(a, 0.95, 1.8)); p["b"] = float(nb - a * p1)  # noqa: E702  # levels params
     # 3) Midtone gamma toward target (estimated after the levels stretch).
     med = float(np.clip(st["p50"] * p["a"] + p["b"], 1, 254))
     p["gamma"] = float(np.clip(
@@ -939,7 +939,6 @@ def pass2_birefnet(frames, sam2_logits, output_dir, progress_callback=None,
             first N frames are matted (these ARE final frames — preview == final)
         on_preview_ready: callback(n) invoked after the first N frames are saved
     """
-    import torch
     from torchvision import transforms
 
     # 1024 for ROI crops: crisper edge/fur matte than 768 (sharper alpha gradient,
@@ -986,7 +985,7 @@ def pass2_birefnet(frames, sam2_logits, output_dir, progress_callback=None,
     # alpha (replaces per-frame loop body in the integration below).
     alpha_final_list = []
     sam2_binary_list = []
-    img_list = []  # colour-graded RGB for FB fusion after smoothing
+    img_list = []  # noqa: F841  # colour-graded RGB for FB fusion after smoothing
     bgr_pre_fb_list = []  # raw RGB (pre-FB) for FB fusion input
 
     for i, fp in enumerate(frames):
@@ -1277,12 +1276,11 @@ def run_quality_feedback(alphas, logits, yolo_bbox, h, w, frame_paths=None, emit
         metrics: list of per-frame metrics
         red_count: number of red frames (need user input)
     """
-    import cv2
 
     total = len(alphas)
     metrics = []
     prev_mask = None
-    consecutive_yellow = 0
+    consecutive_yellow = 0  # noqa: F841  # reserved for future temporal-quality scoring
     red_frames = []
 
     # Phase 1: compute metrics for all frames
@@ -1663,7 +1661,7 @@ def stabilize_output_position(final_dir, n, smooth_radius=STABILIZE_OUTPUT_RADIU
     # This is the same pattern as the trajectory smoother in Part A, but
     # applied per-axis on the 1D centroid signal.
     r = int(smooth_radius)
-    k_len = 2 * r + 1
+    _k_len = 2 * r + 1  # noqa: F841  # kernel size, kept for diagnostics
 
     def moving_avg_reflect(sig, r):
         """Moving average with reflective boundary handling, NaN-safe.
@@ -1819,17 +1817,17 @@ def check_dependencies():
         missing.append("torch")
 
     try:
-        from sam2.build_sam import build_sam2_video_predictor
+        from sam2.build_sam import build_sam2_video_predictor  # noqa: F401  # import-probe for dep check
     except ImportError:
         missing.append("sam2 (run: pip install git+https://github.com/facebookresearch/sam2.git)")
 
     try:
-        from transformers import AutoModelForImageSegmentation
+        from transformers import AutoModelForImageSegmentation  # noqa: F401  # import-probe for dep check
     except ImportError:
         missing.append("transformers")
 
     try:
-        import torchvision
+        import torchvision  # noqa: F401  # import-probe for dep check
     except ImportError:
         missing.append("torchvision (run: pip install torchvision)")
 
@@ -1841,13 +1839,10 @@ def check_dependencies():
 
 
 def main():
-    # Pre-flight dependency check
-    missing = check_dependencies()
-    if missing:
-        emit({"type": "error", "message": f"Missing dependencies: {', '.join(missing)}"})
-        sys.exit(1)
-
-    parser = argparse.ArgumentParser(description="Track-then-Matte pipeline")
+    parser = argparse.ArgumentParser(
+        description="Track-then-Matte pipeline (realpet track_then_matte)",
+        add_help=True,
+    )
     parser.add_argument("--video", required=True, help="Input video path")
     parser.add_argument("--output-dir", required=True, help="Output directory")
     parser.add_argument("--fps", type=int, default=10, help="Frame extraction FPS")
@@ -1868,6 +1863,12 @@ def main():
     parser.add_argument("--preview-only", action="store_true",
                         help="Only run SAM2 pass (preview)")
     args = parser.parse_args()
+
+    # Pre-flight dependency check (after parse_args so --help works without deps)
+    missing = check_dependencies()
+    if missing:
+        emit({"type": "error", "message": f"Missing dependencies: {', '.join(missing)}"})
+        sys.exit(1)
 
     output_dir = args.output_dir
     extract_dir = os.path.join(output_dir, "extracted")
@@ -2072,7 +2073,7 @@ def main():
     # frame — different failure from coverage spikes, so the deflicker above
     # is blind to it). Operates on the saved RGBA files: holds the nearest
     # good neighbour over each flagged frame.
-    opacity_flashes = repair_opacity_flashes(final_dir, len(alphas), emit_fn=emit)
+    opacity_flashes = repair_opacity_flashes(final_dir, len(alphas), emit_fn=emit)  # noqa: F841  # report count (see emit log)
 
     # Part B #1 (tech/PET_STABILIZATION_PARTB.md §2): rigid-translate each RGBA
     # cutout so the alpha centroid tracks a smoothed trajectory. Kills the

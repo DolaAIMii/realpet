@@ -18,10 +18,8 @@ import argparse
 import json
 import os
 import subprocess
-import sys
 
 import cv2
-import numpy as np
 
 
 def emit(msg):

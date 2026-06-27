@@ -43,7 +43,10 @@ def main():
 
     # Check dependencies
     try:
-        import torch, PIL, numpy, cv2  # noqa: F401
+        import torch  # noqa: F401
+        import PIL  # noqa: F401
+        import numpy  # noqa: F401
+        import cv2  # noqa: F401
         from transformers import AutoModelForImageSegmentation  # noqa: F401
     except ImportError as e:
         emit({"type": "error", "message": f"Missing dependency: {e}"})

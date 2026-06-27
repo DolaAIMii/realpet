@@ -21,7 +21,7 @@ _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from scripts.track_then_matte import check_quality
+from scripts.track_then_matte import check_quality  # noqa: E402  # requires sys.path setup above
 
 
 def extract_frames(video_path, num_frames=6):
@@ -51,7 +51,7 @@ def extract_frames(video_path, num_frames=6):
             t = step * (i + 1)
             f.write(f"file '{video_path}'\n")
             f.write(f"inpoint {t:.3f}\n")
-            f.write(f"duration 0.04\n")  # ~1 frame at 30fps
+            f.write("duration 0.04\n")  # ~1 frame at 30fps
 
     out_pattern = os.path.join(tmpdir, "frame_%04d.jpg")
     try:
@@ -102,7 +102,7 @@ def run_qc(video, output_dir, emit=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Quality gate for deskpet videos")
+    parser = argparse.ArgumentParser(description="Quality gate for realpet videos")
     parser.add_argument("--video", required=True, help="Path to video file")
     parser.add_argument("--output-dir", required=True, help="Output directory (unused, kept for API consistency)")
     args = parser.parse_args()

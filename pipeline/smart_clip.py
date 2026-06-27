@@ -17,10 +17,9 @@
 
 import subprocess
 import os
-import tempfile
 import glob
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 
 @dataclass
@@ -74,7 +73,6 @@ def analyze_video(video_path: str, target_duration: float = 8.0,
         SelectionResult 包含推荐片段和所有候选片段
     """
     import cv2
-    import numpy as np
 
     # Step 1: 获取视频信息
     if progress_callback:
@@ -103,10 +101,9 @@ def analyze_video(video_path: str, target_duration: float = 8.0,
 
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
-    total_video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
+    _total_video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # noqa: F841  # kept for diagnostics
     frame_scores: List[FrameScore] = []
-    sample_interval = fps  # 每秒取 1 帧
+    _sample_interval = fps  # noqa: F841  # 每秒取 1 帧(语义保留)
 
     for sec in range(int(duration)):
         frame_idx = int(sec * fps)
@@ -192,7 +189,6 @@ def _evaluate_frame(frame, timestamp: float) -> FrameScore:
     4. 主体占比：前景占画面的比例
     """
     import cv2
-    import numpy as np
 
     h, w = frame.shape[:2]
 
@@ -273,7 +269,6 @@ def _detect_pet_rcnn(frame) -> Tuple[bool, float, float]:
     """
     try:
         from pipeline.pet_detector import detect_pet_bbox
-        import numpy as np
         bbox = detect_pet_bbox(frame)
         if bbox is not None:
             h, w = frame.shape[:2]

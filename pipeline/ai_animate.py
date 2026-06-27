@@ -181,7 +181,6 @@ def process_video_to_frames(video_path, output_dir, fps=24, target_size=None,
     Returns:
         list of final frame paths ready for display
     """
-    import glob as g
 
     extract_dir = os.path.join(output_dir, "extracted")
     segment_dir = os.path.join(output_dir, "segmented")

@@ -81,7 +81,6 @@ def detect_temporal_anomaly(alphas, idx, h, w):
     Returns:
         tuple: (is_anomaly, novel_mask) or (False, None)
     """
-    import cv2
 
     if len(alphas) < 5 or idx < 2 or idx >= len(alphas) - 2:
         return False, None
