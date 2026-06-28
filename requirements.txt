@@ -6,3 +6,9 @@ Pillow
 opencv-python-headless
 requests
 pyobjc-framework-Cocoa
+# BiRefNet (HuggingFace trust_remote_code) runtime deps — discovered via
+# CI on a clean macos-14 runner: ImportError without these when loading
+# ZhengPeng7/BiRefNet-matting. Pin major versions to avoid surprise breakage.
+einops
+kornia
+timm
