@@ -74,13 +74,16 @@ jobs:
           python-version: "3.11"
 
       - name: Run install.sh (creates venv + installs deps)
+        env:
+          REALPET_VENV: ${{ runner.temp }}/realpet-venv
         run: |
+          VENV_DIR="${REALPET_VENV}"
+          echo "Using VENV_DIR=$VENV_DIR"
           bash install.sh
           echo "---"
-          # install.sh creates $VENV_DIR; we want the python it produced
-          VENV_DIR="$HOME/.venvs/realpet"
           if [ ! -x "$VENV_DIR/bin/python" ]; then
             echo "::error::install.sh did not produce $VENV_DIR/bin/python"
+            ls -la "$(dirname "$VENV_DIR")" || true
             exit 1
           fi
           "$VENV_DIR/bin/python" --version
@@ -89,8 +92,9 @@ jobs:
       - name: download_weights.py — assert SAM2 + BiRefNet ready
         env:
           HF_ENDPOINT: ${{ env.HF_ENDPOINT }}
+          REALPET_VENV: ${{ runner.temp }}/realpet-venv
         run: |
-          VENV_DIR="$HOME/.venvs/realpet"
+          VENV_DIR="${REALPET_VENV}"
           "$VENV_DIR/bin/python" scripts/download_weights.py
           echo "---"
           ls -lh weights/sam2/
@@ -99,8 +103,9 @@ jobs:
       - name: CI inference smoke (BiRefNet + Faster R-CNN, CPU fallback)
         env:
           HF_HOME: ${{ runner.temp }}/hf_cache
+          REALPET_VENV: ${{ runner.temp }}/realpet-venv
         run: |
-          VENV_DIR="$HOME/.venvs/realpet"
+          VENV_DIR="${REALPET_VENV}"
           mkdir -p "$HF_HOME"
           "$VENV_DIR/bin/python" scripts/ci_inference_smoke.py
 
@@ -111,8 +116,10 @@ jobs:
           swift build -c release
 
       - name: track_then_matte.py --help (must work without weights)
+        env:
+          REALPET_VENV: ${{ runner.temp }}/realpet-venv
         run: |
-          VENV_DIR="$HOME/.venvs/realpet"
+          VENV_DIR="${REALPET_VENV}"
           # Rename weights dir so --help can't accidentally find them
           if [ -d weights/sam2 ]; then
             mv weights/sam2 weights/sam2.staged
