@@ -134,10 +134,17 @@ class PythonBridge: ObservableObject {
         for p in toolPaths + existing where !merged.contains(p) { merged.append(p) }
         env["PATH"] = merged.joined(separator: ":")
 
-        // (b) HF_HOME / TORCH_HOME default to bundled weights when present.
-        // Users can override via launchctl/env; we only set if absent.
+        // (b) HF_HUB_CACHE / HF_HOME / TORCH_HOME default to bundled weights.
+        //
+        // huggingface_hub stores the actual repo cache under HF_HUB_CACHE.
+        // We bundle the cache directly at Resources/weights/hf/
+        // (models--<org>--<repo>/snapshots/...), so HF_HUB_CACHE must point there.
         let bundledHF = Bundle.main.resourceURL?
             .appendingPathComponent("weights/hf").path
+        if let bundledHF, env["HF_HUB_CACHE"] == nil,
+           FileManager.default.fileExists(atPath: bundledHF) {
+            env["HF_HUB_CACHE"] = bundledHF
+        }
         if let bundledHF, env["HF_HOME"] == nil,
            FileManager.default.fileExists(atPath: bundledHF) {
             env["HF_HOME"] = bundledHF

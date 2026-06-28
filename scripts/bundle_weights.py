@@ -19,8 +19,8 @@ DEFAULT_OUT = os.environ.get(
 
 BIREFNET_REPO = "ZhengPeng7/BiRefNet-matting"
 RCNN_URL = ("https://download.pytorch.org/models/"
-            "fasterrcnn_resnet50_fpn_v2_coco32689bffd.pth")
-RCNN_EXPECTED_SIZE = 173_000_000
+            "fasterrcnn_resnet50_fpn_v2_coco-dd69338a.pth")
+RCNN_EXPECTED_SIZE = 167_000_000
 
 
 def _ensure_env(out_dir):
@@ -31,14 +31,14 @@ def _ensure_env(out_dir):
 def download_birefnet(out_dir, force=False):
     from huggingface_hub import snapshot_download
     dest = os.path.join(out_dir, "hf")
-    if not force and os.path.isdir(os.path.join(dest, "hub")):
+    hub_dir = os.path.join(dest, "hub")
+    if not force and os.path.isdir(hub_dir):
         print("BiRefNet already present")
         return
     print(f"Downloading BiRefNet-matting to {dest} ...")
     snapshot_download(
         repo_id=BIREFNET_REPO,
-        local_dir=dest,
-        local_dir_use_symlinks=False,
+        cache_dir=dest,
         allow_patterns=["*.json", "*.py", "*.safetensors", "*.bin",
                         "*.txt", "*.md"],
     )
@@ -55,8 +55,35 @@ def download_faster_rcnn(out_dir, force=False):
             return
         print(f"Existing Faster R-CNN too small ({size:,} bytes), "
               "re-downloading...")
+        os.remove(dest)
+
     print(f"Downloading Faster R-CNN to {dest} ...")
-    urllib.request.urlretrieve(RCNN_URL, dest)
+    req = urllib.request.Request(
+        RCNN_URL,
+        headers={
+            "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                           "AppleWebKit/537.36 (KHTML, like Gecko) "
+                           "Chrome/125.0.0.0 Safari/537.36")
+        },
+    )
+
+    block_size = 1024 * 1024
+    with urllib.request.urlopen(req) as response, open(dest, "wb") as out:
+        total = int(response.headers.get("Content-Length", 0))
+        downloaded = 0
+        while True:
+            chunk = response.read(block_size)
+            if not chunk:
+                break
+            out.write(chunk)
+            downloaded += len(chunk)
+            if total > 0:
+                pct = min(100, downloaded * 100 // total)
+                mb = downloaded / (1024 * 1024)
+                total_mb = total / (1024 * 1024)
+                print(f"\r  {pct}% ({mb:.1f}/{total_mb:.1f} MB)", end="",
+                      flush=True)
+        print()
     size = os.path.getsize(dest)
     print(f"Done. ({size:,} bytes)")
 
@@ -69,8 +96,7 @@ def verify(out_dir):
     sam2_path = os.path.join(out_dir, "sam2", "sam2.1_hiera_tiny.pt")
     checks = [
         ("SAM2", sam2_path, SAM2_EXPECTED_SIZE, "file"),
-        ("BiRefNet", os.path.join(out_dir, "hf", "hub"),
-         100_000_000, "dir"),
+        ("BiRefNet", os.path.join(out_dir, "hf"), 100_000_000, "dir"),
         ("Faster R-CNN", os.path.join(out_dir, "torch", "hub", "checkpoints",
                                       os.path.basename(RCNN_URL)),
          RCNN_EXPECTED_SIZE, "file"),
