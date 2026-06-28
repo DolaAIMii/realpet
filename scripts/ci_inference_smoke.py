@@ -21,8 +21,13 @@ from transformers import AutoModelForImageSegmentation
 
 
 def _device():
-    if torch.backends.mps.is_available():
-        return torch.device("mps")
+    # Force CPU on macOS CI: GitHub Actions macos-14 runners advertise MPS but
+    # the MPS memory pool (~7.9 GiB hard cap) is too tight for BiRefNet
+    # (~900 MB weights) plus a real forward pass. Forcing CPU here keeps the
+    # smoke test about "do the imports + forward path work?" rather than
+    # "can MPS fit this model in the runner's shared memory?". On a real
+    # user machine the pipeline uses mps when available and falls back to
+    # cpu automatically (see pipeline/segment.py + scripts/track_then_matte.py).
     return torch.device("cpu")
 
 
