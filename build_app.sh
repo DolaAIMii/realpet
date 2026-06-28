@@ -24,8 +24,8 @@ ok "Swift build complete"
 # 2. Find the binary
 BINARY=$(find "$BUILD_DIR" -name "$APP_NAME" -type f -perm +111 | head -1)
 if [ -z "$BINARY" ]; then
-    # Fallback: look for the target name
-    BINARY=$(find "$BUILD_DIR" -name "RealPet" -type f | head -1)
+    # Fallback: look anywhere under .build/release for the executable
+    BINARY=$(find "$SCRIPT_DIR/RealPet/.build" -name "$APP_NAME" -type f -perm +111 | head -1)
 fi
 if [ -z "$BINARY" ]; then
     echo "Error: could not find built binary in $BUILD_DIR"
@@ -77,6 +77,16 @@ PLIST
 cp -r "$SCRIPT_DIR/pipeline" "$APP_BUNDLE/Contents/Resources/"
 cp -r "$SCRIPT_DIR/scripts" "$APP_BUNDLE/Contents/Resources/"
 
+# Copy weights if present (SAM2 only; BiRefNet/Faster R-CNN are auto-downloaded
+# by HuggingFace/torchvision on first launch and cached under ~/.cache).
+# Bundling SAM2 avoids the common SSL cert / slow-download failure on first run.
+if [ -d "$SCRIPT_DIR/weights" ]; then
+    cp -r "$SCRIPT_DIR/weights" "$APP_BUNDLE/Contents/Resources/"
+    ok "Bundled SAM2 weights ($(du -sh "$SCRIPT_DIR/weights" | cut -f1))"
+else
+    echo "Warning: no weights/ directory found; first launch will download SAM2."
+fi
+
 ok "App bundle assembled"
 
 # 4. Ad-hoc code sign
@@ -91,8 +101,9 @@ echo "Output: $APP_BUNDLE"
 echo ""
 echo "To run: open $APP_BUNDLE"
 echo ""
-echo "Weights are NOT bundled (too large, ~1 GB)."
-echo "Point the app at your weights directory before first run:"
-echo "  export REALPET_WEIGHTS_DIR=/path/to/your/weights"
-echo "Default search path (if env unset): <repo>/weights/"
-echo "  python scripts/download_weights.py  # to fetch the official set"
+echo "SAM2 weights are bundled. On first launch the app will still download"
+echo "BiRefNet-matting (~900 MB) and Faster R-CNN (~175 MB) from HuggingFace"
+echo "and cache them under ~/.cache/. This requires a stable internet connection."
+echo ""
+echo "If HuggingFace is slow or blocked in your region, launch with a mirror:"
+echo "  HF_ENDPOINT=https://hf-mirror.com open /Applications/RealPet.app"
