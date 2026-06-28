@@ -3,6 +3,32 @@
 This document is for **maintainers** shipping a public release of RealPet.
 End users only need `README.md`.
 
+## v0.2.0 — Double-click to use (2026-06-28)
+
+### What's new
+
+- **All model weights bundled** in the .app: SAM2 (~156 MB) + BiRefNet-matting (~900 MB) + Faster R-CNN (~175 MB).
+- **Static ffmpeg bundled** — no `brew install ffmpeg` required.
+- **First-launch SetupWizard** auto-creates the Python venv. Users only need Python 3.10+ installed (one `brew install python@3.12`, no sudo on Apple Silicon).
+- DMG compression switched to ULFO (LZFSE) on Apple Silicon; Intel fallback remains UDZO.
+
+### End-user install
+
+1. Download `RealPet.dmg`.
+2. Double-click and drag `RealPet.app` to `/Applications`.
+3. Launch. First run sets up Python (~2 minutes, one-time).
+
+### Maintainer build
+
+```bash
+./build_app.sh   # downloads weights on first run; produces dist/RealPet.app
+./build_dmg.sh   # produces dist/RealPet.dmg
+```
+
+Expected DMG size: ~1.05–1.15 GB (was 139 MB in v0.1.0).
+
+---
+
 ## What this repo ships
 
 - A Swift/SwiftUI macOS app (`RealPet/`)
@@ -47,7 +73,10 @@ End-user experience (ad-hoc):
 4. Launch from `/Applications` (or Spotlight).
 5. **First-launch Gatekeeper prompt**: right-click the .app → Open → Open
    (only needed once; macOS records the exception).
-6. The app downloads ~1 GB of model weights on first run (see "Network" below).
+6. **First-launch SetupWizard**: if Python 3.10+ is not found, copy the
+   `brew install python@3.12` command into Terminal (no sudo on Apple Silicon),
+   then click **重新检测 / Retry**. The wizard creates a venv and installs
+   dependencies (~2 minutes, one-time).
 7. Done.
 
 ## 2. Build a Developer-ID-signed + notarized DMG (public release)
@@ -150,21 +179,25 @@ xcrun stapler staple dist/RealPet.dmg
 
 ## 3. Network considerations on first launch
 
-The `.app` downloads ~1 GB of model weights on first run:
+**RESOLVED in v0.2.0.** All model weights are now bundled in the `.app`:
 
-- **SAM2** (~156 MB) from `dl.fbaipublicfiles.com` — direct download via `scripts/download_weights.py`
-- **BiRefNet-matting** (~900 MB) from **HuggingFace** — auto-downloaded by `transformers.AutoModelForImageSegmentation`
-- **Faster R-CNN** (~175 MB) from torchvision — auto-downloaded on first use
+- **SAM2** (~156 MB) — bundled at `Resources/weights/sam2/`
+- **BiRefNet-matting** (~900 MB) — bundled at `Resources/weights/hf/`
+- **Faster R-CNN** (~175 MB) — bundled at `Resources/weights/torch/`
 
-If end users are in regions where HuggingFace is slow or blocked, instruct
-them to set the mirror **before launching**:
+No internet connection is required for first launch. The only first-launch
+setup is creating the Python venv and installing pip dependencies, which uses
+PyPI. If PyPI is slow or blocked in your region, set a mirror before launching:
 
 ```bash
-export HF_ENDPOINT=https://hf-mirror.com
+export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 open /Applications/RealPet.app
 ```
 
-(This works because `transformers` respects the `HF_ENDPOINT` env var.)
+(The default PyPI endpoint is `https://pypi.org/simple`.)
+
+`HF_ENDPOINT` is still honored for any code path that does hit HuggingFace,
+but it is no longer required for normal use.
 
 ## 4. Reproducibility — what was actually tested
 
@@ -191,14 +224,6 @@ A "fresh-clone verify" means:
 These are **not** solved by `build_dmg.sh`. They are listed here for
 transparency so users filing issues don't get bounced:
 
-- **First-launch automatic weight download inside the .app**: the current
-  flow requires the user to either (a) run `python scripts/download_weights.py`
-  in the repo, or (b) place weights under `~/.cache/huggingface/` manually.
-  A Swift-side auto-download + progress UI + mirror switching is a future
-  feature (issue TBD).
-- **ffmpeg-missing alert UI**: if the user's machine has no `ffmpeg`, the
-  app currently fails silently. A `NSAlert` on first launch pointing at
-  `brew install ffmpeg` is a future feature (issue TBD).
 - **Auto-update**: not implemented. Users download new releases manually
   from GitHub Releases.
 

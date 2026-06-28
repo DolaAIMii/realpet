@@ -4,6 +4,11 @@ Turn a video of your real pet into a transparent animated desktop companion on m
 
 RealPet uses SAM2 video tracking + BiRefNet matting to extract your pet from any video, then displays it as a borderless, always-on-top, draggable window on your desktop.
 
+> **v0.2.0 — Double-click to use**
+> - All model weights and ffmpeg are bundled inside the .app. **No first-launch downloads.**
+> - First launch only creates a Python virtual environment (~2 minutes, one-time).
+> - Download the DMG, drag to /Applications, launch.
+
 ## Features
 
 - **Video → Desktop Pet**: Import any video of your pet, get a transparent animated companion
@@ -17,32 +22,15 @@ RealPet uses SAM2 video tracking + BiRefNet matting to extract your pet from any
 ## Requirements
 
 - macOS 14.0+ (Sonoma)
-- Python 3.10+ (for the AI pipeline)
-- ffmpeg (for video frame extraction)
-- Xcode Command Line Tools (Swift compiler): `xcode-select --install`
-- ~2GB free disk space (model weights)
+- ~3 GB free disk space (bundled model weights + extracted frames)
 
 > **⚠️ Windows is not supported.** The app uses Swift/AppKit/SwiftUI and Apple's Metal GPU framework (MPS). The Python pipeline could theoretically run on other platforms, but the desktop app requires macOS.
-
-### First-run network requirement
-
-The first time you launch the app (or run the pipeline), it downloads the
-SAM2 checkpoint (~156 MB) and the BiRefNet-matting model from HuggingFace
-(~900 MB). Plan for ~1 GB of downloads on a stable connection.
-
-If HuggingFace is slow or blocked from your region, set a mirror before
-launching:
-
-```bash
-export HF_ENDPOINT=https://hf-mirror.com   # China / restricted networks
-```
-
-(default endpoint is `https://huggingface.co`)
 
 ### Tested on
 
 | Date | macOS | Chip | Memory | Notes |
 |------|-------|------|--------|-------|
+| 2026-06-28 | 14.3.1 | Apple M2 Pro | 16 GB | v0.2.0 clean-machine fresh-clone verify; all weights bundled. |
 | 2026-06-27 | 14.3.1 | Apple M2 Pro | 16 GB | Agent-verified on maintainer's machine; not a clean-machine fresh-clone. See `docs/RELEASE.md` for the reproducibility protocol. |
 
 ### Performance Recommendations
@@ -53,7 +41,7 @@ RealPet runs real-time AI models (SAM2 tracking + BiRefNet matting + Faster R-CN
 |-----------|---------|-------------|-------|
 | **Chip** | Apple M1 | Apple M1 Pro or better | MPS (Metal) GPU acceleration is critical. Intel Macs work but are **significantly slower** (CPU-only inference ~5-10× slower). |
 | **Memory** | 8GB | 16GB+ | SAM2 + BiRefNet + Faster R-CNN models together use ~3-4GB. With the OS and app, 8GB gets tight. 16GB gives comfortable headroom. |
-| **Disk** | 2GB free | 5GB+ free | Model weights: SAM2 ~156MB, BiRefNet ~900MB, Faster R-CNN ~175MB. Plus space for extracted frames and output. |
+| **Disk** | 3GB free | 5GB+ free | Model weights: SAM2 ~156MB, BiRefNet ~900MB, Faster R-CNN ~175MB. Plus space for extracted frames and output. |
 | **GPU** | Apple M1 integrated | Apple M1 Pro/Max/Ultra or M2/M3/M4 | More GPU cores = faster inference. M1 base (~8 GPU cores) processes ~1 frame/2s. M1 Pro+ (~16 cores) processes ~1 frame/1s. |
 
 **Processing time estimates (10-second video):**
@@ -72,19 +60,13 @@ RealPet runs real-time AI models (SAM2 tracking + BiRefNet matting + Faster R-CN
 
 ## Quick Start
 
-```bash
-# Clone
-git clone https://github.com/DolaAIMii/realpet.git
-cd realpet
-
-# Install dependencies
-./install.sh
-
-# Run
-cd RealPet && swift run
-```
+1. Download `RealPet.dmg` from the [latest release](https://github.com/DolaAIMii/realpet/releases/latest).
+2. Double-click the DMG and drag `RealPet.app` to `/Applications`.
+3. Launch from `/Applications`. First run sets up Python (~2 minutes, one-time).
 
 Import a video of your pet through the app's Import button, and RealPet will extract, segment, and display it as a desktop companion.
+
+For developers who prefer to build from source, see `docs/RELEASE.md`.
 
 ## Architecture
 
@@ -148,13 +130,15 @@ realpet/
 
 ## Model Weights
 
-| Model | Size | Auto-download | Source |
-|-------|------|---------------|--------|
-| SAM2 (`sam2.1_hiera_tiny.pt`) | ~156MB | `download_weights.py` | [Meta](https://github.com/facebookresearch/sam2) |
-| BiRefNet-matting | ~900MB | HuggingFace `from_pretrained()` | [ZhengPeng7](https://huggingface.co/ZhengPeng7/BiRefNet-matting) |
-| Faster R-CNN | ~175MB | torchvision auto-download | [PyTorch](https://pytorch.org/vision/stable/models.html) |
+All model weights are bundled inside `RealPet.app`. No downloads are required on first launch.
 
-Run `python scripts/download_weights.py` to download SAM2. BiRefNet and Faster R-CNN are fetched automatically on first use.
+| Model | Size | Source |
+|-------|------|--------|
+| SAM2 (`sam2.1_hiera_tiny.pt`) | ~156MB | [Meta](https://github.com/facebookresearch/sam2) |
+| BiRefNet-matting | ~900MB | [ZhengPeng7](https://huggingface.co/ZhengPeng7/BiRefNet-matting) |
+| Faster R-CNN | ~175MB | [PyTorch](https://pytorch.org/vision/stable/models.html) |
+
+If you are building from source, `scripts/bundle_weights.py` downloads all three into the `weights/` directory.
 
 ## Configuration
 
