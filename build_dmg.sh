@@ -6,8 +6,7 @@
 #
 # Prerequisites:
 #   1. ./build_app.sh must have run successfully (produces dist/RealPet.app).
-#   2. The user must set REALPET_WEIGHTS_DIR before launching the .app
-#      (or place weights under <repo>/weights/).
+#   2. The .app bundles all model weights and static ffmpeg (v0.2.0+).
 #
 # What this does:
 #   - Creates a temporary read-only DMG with a symlink to /Applications,
@@ -40,13 +39,14 @@ echo "Staging .app and Applications symlink..."
 cp -R "$APP_BUNDLE" "$STAGE_DIR/RealPet.app"
 ln -s /Applications "$STAGE_DIR/Applications"
 
-# Create read-only DMG
+FFMT=ULFO
+[ "$(uname -m)" = "x86_64" ] && FFMT=UDZO
 echo "Creating DMG (this may take ~30s)..."
 rm -f "$DMG_OUT"
 hdiutil create -ov -volname "$VOL_NAME" \
     -fs HFS+ -fsargs "-c c=64,a=16,e=16" \
     -srcfolder "$STAGE_DIR" \
-    -format UDZO \
+    -format "$FFMT" \
     "$DMG_OUT" 2>&1 | tail -5
 
 echo ""
@@ -60,9 +60,8 @@ echo "  2. Drag RealPet to /Applications"
 echo "  3. Eject the disk image"
 echo "  4. Launch from /Applications (or Spotlight)"
 echo ""
-echo "NOTE: First launch downloads ~1 GB of model weights via HuggingFace."
-echo "      Optionally set HF_ENDPOINT=https://hf-mirror.com before launching"
-echo "      if HuggingFace is slow or blocked in your region."
+echo "NOTE: First launch sets up Python (~2 min, one-time)."
+echo "      All weights and ffmpeg are bundled. No downloads."
 echo ""
 echo "Ad-hoc-signed .app: right-click → Open the first time (Gatekeeper)."
 echo "For Developer ID signing + notarization, see docs/RELEASE.md."

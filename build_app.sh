@@ -58,9 +58,9 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << 'PLIST'
     <key>CFBundleDisplayName</key>
     <string>RealPet</string>
     <key>CFBundleVersion</key>
-    <string>1.0.0</string>
+    <string>0.2.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>0.2.0</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSMinimumSystemVersion</key>
@@ -73,19 +73,37 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << 'PLIST'
 </plist>
 PLIST
 
-# Copy pipeline and scripts as resources
-cp -r "$SCRIPT_DIR/pipeline" "$APP_BUNDLE/Contents/Resources/"
-cp -r "$SCRIPT_DIR/scripts" "$APP_BUNDLE/Contents/Resources/"
-
-# Copy weights if present (SAM2 only; BiRefNet/Faster R-CNN are auto-downloaded
-# by HuggingFace/torchvision on first launch and cached under ~/.cache).
-# Bundling SAM2 avoids the common SSL cert / slow-download failure on first run.
-if [ -d "$SCRIPT_DIR/weights" ]; then
-    cp -r "$SCRIPT_DIR/weights" "$APP_BUNDLE/Contents/Resources/"
-    ok "Bundled SAM2 weights ($(du -sh "$SCRIPT_DIR/weights" | cut -f1))"
+# --- Bundle all model weights (NEW v0.2.0) ---
+WEIGHTS_DIR="$SCRIPT_DIR/weights"
+if [ ! -d "$WEIGHTS_DIR/sam2" ] || [ ! -d "$WEIGHTS_DIR/hf" ] \
+   || [ ! -d "$WEIGHTS_DIR/torch" ]; then
+    echo "--- Bundling model weights (first build, downloads ~1 GB) ---"
+    # 用临时 venv 跑 bundle_weights.py(避免要求 build 机器已装 pip)
+    TMP_VENV=$(mktemp -d)/venv
+    python3 -m venv "$TMP_VENV" >/dev/null
+    "$TMP_VENV/bin/pip" install -q huggingface_hub
+    REALPET_WEIGHTS_DIR="$WEIGHTS_DIR" \
+        "$TMP_VENV/bin/python" "$SCRIPT_DIR/scripts/bundle_weights.py" \
+        --out "$WEIGHTS_DIR"
+    rm -rf "$(dirname "$TMP_VENV")"
+    ok "Weights bundled"
 else
-    echo "Warning: no weights/ directory found; first launch will download SAM2."
+    ok "Weights already present, skipping"
 fi
+cp -r "$WEIGHTS_DIR" "$APP_BUNDLE/Contents/Resources/"
+ok "Bundled weights ($(du -sh "$WEIGHTS_DIR" | cut -f1))"
+
+# --- Bundle static ffmpeg (NEW v0.2.0) ---
+FFMPEG_DIR="$APP_BUNDLE/Contents/Resources/bin"
+mkdir -p "$FFMPEG_DIR"
+FFMPEG_TMP=$(mktemp -d)
+curl -fsSL -o "$FFMPEG_TMP/ffmpeg.zip" \
+    https://evermeet.cx/ffmpeg/getrelease/zip
+unzip -q "$FFMPEG_TMP/ffmpeg.zip" -d "$FFMPEG_DIR"
+chmod +x "$FFMPEG_DIR/ffmpeg"
+rm -rf "$FFMPEG_TMP"
+"$FFMPEG_DIR/ffmpeg" -version | head -1
+ok "Bundled static ffmpeg"
 
 ok "App bundle assembled"
 
@@ -101,9 +119,7 @@ echo "Output: $APP_BUNDLE"
 echo ""
 echo "To run: open $APP_BUNDLE"
 echo ""
-echo "SAM2 weights are bundled. On first launch the app will still download"
-echo "BiRefNet-matting (~900 MB) and Faster R-CNN (~175 MB) from HuggingFace"
-echo "and cache them under ~/.cache/. This requires a stable internet connection."
+echo "First launch sets up Python (~2 min, one-time)."
+echo "All model weights and ffmpeg are bundled. No downloads."
 echo ""
-echo "If HuggingFace is slow or blocked in your region, launch with a mirror:"
-echo "  HF_ENDPOINT=https://hf-mirror.com open /Applications/RealPet.app"
+echo "Ad-hoc-signed .app: right-click → Open the first time (Gatekeeper)."
