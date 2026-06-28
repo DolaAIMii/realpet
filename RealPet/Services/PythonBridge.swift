@@ -86,12 +86,34 @@ class PythonBridge: ObservableObject {
     static func subprocessEnvironment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
 
-        let toolPaths = ["/opt/homebrew/bin", "/usr/local/bin",
-                         "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+        // (a) Resources/bin first: bundled static ffmpeg lives here.
+        let resourcesBin = Bundle.main.resourceURL?
+            .appendingPathComponent("bin").path
+        let toolPaths = [
+            resourcesBin,                                   // dev swift run: nil
+            "/opt/homebrew/bin", "/usr/local/bin",
+            "/usr/bin", "/bin", "/usr/sbin", "/sbin",
+        ].compactMap { $0 }
         let existing = (env["PATH"] ?? "").split(separator: ":").map(String.init)
         var merged: [String] = []
         for p in toolPaths + existing where !merged.contains(p) { merged.append(p) }
         env["PATH"] = merged.joined(separator: ":")
+
+        // (b) HF_HOME / TORCH_HOME default to bundled weights when present.
+        // Users can override via launchctl/env; we only set if absent.
+        let bundledHF = Bundle.main.resourceURL?
+            .appendingPathComponent("weights/hf").path
+        if let bundledHF, env["HF_HOME"] == nil,
+           FileManager.default.fileExists(atPath: bundledHF) {
+            env["HF_HOME"] = bundledHF
+        }
+        let bundledTorch = Bundle.main.resourceURL?
+            .appendingPathComponent("weights/torch").path
+        if let bundledTorch, env["TORCH_HOME"] == nil,
+           FileManager.default.fileExists(atPath: bundledTorch) {
+            env["TORCH_HOME"] = bundledTorch
+        }
+        // HF_ENDPOINT is inherited as-is; never hardcoded.
 
         let venvSitePackages = venvDir + "/lib/python3.10/site-packages"
         let existingPythonPath = env["PYTHONPATH"] ?? ""
