@@ -53,7 +53,13 @@ class PythonBridge: ObservableObject {
         return bundleURL
     }()
 
-    /// Resolve the venv directory.  Order: REALPET_VENV env var → project .venv → ~/.venvs/sam2
+    /// Resolve the venv directory.
+    ///
+    /// Order:
+    ///   1. REALPET_VENV env var (CI / developer override)
+    ///   2. SetupWizard marker file (user .app path)
+    ///   3. <projectRoot>/.venv (dev `swift run` path)
+    ///   4. legacy ~/.venvs/sam2
     static var venvDir: String {
         let fm = FileManager.default
         let env = ProcessInfo.processInfo.environment
@@ -63,14 +69,43 @@ class PythonBridge: ObservableObject {
             return venv
         }
 
-        // 2. Project-local .venv
+        // 2. SetupWizard marker (user .app path)
+        if let marker = try? String(contentsOf: markerURL(), encoding: .utf8),
+           !marker.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           fm.fileExists(atPath: marker) {
+            return marker
+        }
+
+        // 3. Project-local .venv
         let localVenv = projectRoot.appendingPathComponent(".venv").path
         if fm.fileExists(atPath: localVenv) {
             return localVenv
         }
 
-        // 3. Legacy default
+        // 4. Legacy default
         return NSHomeDirectory() + "/.venvs/sam2"
+    }
+
+    private static func markerURL() -> URL {
+        let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport.appendingPathComponent("RealPet/venv_path.txt")
+    }
+
+    /// Find the actual site-packages directory inside the venv.
+    ///
+    /// Avoids hardcoding "python3.10" so the SetupWizard-created venv works
+    /// regardless of which Python version the user installed.
+    private static var venvSitePackages: String {
+        let fm = FileManager.default
+        let libDir = URL(fileURLWithPath: venvDir).appendingPathComponent("lib")
+        guard fm.fileExists(atPath: libDir.path),
+              let entries = try? fm.contentsOfDirectory(atPath: libDir.path),
+              let pythonDir = entries.first(where: { $0.hasPrefix("python") }),
+              fm.fileExists(atPath: libDir.appendingPathComponent("\(pythonDir)/site-packages").path) else {
+            return venvDir + "/lib/python3.10/site-packages"
+        }
+        return libDir.appendingPathComponent("\(pythonDir)/site-packages").path
     }
 
     /// Environment for Python subprocesses.
@@ -115,9 +150,8 @@ class PythonBridge: ObservableObject {
         }
         // HF_ENDPOINT is inherited as-is; never hardcoded.
 
-        let venvSitePackages = venvDir + "/lib/python3.10/site-packages"
         let existingPythonPath = env["PYTHONPATH"] ?? ""
-        env["PYTHONPATH"] = "\(projectRoot.path):\(venvSitePackages):\(existingPythonPath)"
+        env["PYTHONPATH"] = "\(projectRoot.path):\(Self.venvSitePackages):\(existingPythonPath)"
         return env
     }
 

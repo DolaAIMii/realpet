@@ -22,6 +22,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // v0.2.0: first launch may need Python+venv setup. Run the wizard
+        // before starting the pipeline; otherwise jump straight to the UI.
+        SetupWizard.runIfNeeded { [weak self] outcome in
+            guard let self else { return }
+            switch outcome {
+            case .ready:
+                self.startServicesAndUI()
+            case .aborted(let message):
+                self.showSetupFailure(message)
+            }
+        }
+    }
+
+    @MainActor
+    private func startServicesAndUI() {
         vm = PetListViewModel()
 
         // Start resident Python daemon (Phase 1: detector for QC + detect).
@@ -81,6 +96,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self.window.center()  // re-center after resize
             }
             .store(in: &cancellables)
+    }
+
+    @MainActor
+    private func showSetupFailure(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = "RealPet Setup Required"
+        alert.informativeText = message
+        alert.alertStyle = .critical
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     // MARK: - Window delegate
