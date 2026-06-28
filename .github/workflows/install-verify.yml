@@ -45,14 +45,16 @@ jobs:
           restore-keys: |
             pip-${{ runner.os }}-
 
-      - name: Cache HuggingFace (BiRefNet + Faster R-CNN auto-downloads)
+      - name: Cache weights (HuggingFace + BiRefNet + Faster R-CNN)
         uses: actions/cache@v4
         with:
           path: |
             ~/.cache/huggingface
-          key: hf-${{ runner.os }}-biirefnet-matting-fasterrcnn-v1
+            weights/hf
+            weights/torch
+          key: weights-${{ runner.os }}-birefnet-rcnn-v2
           restore-keys: |
-            hf-${{ runner.os }}-
+            weights-${{ runner.os }}-
 
       - name: Cache SAM2 weights
         uses: actions/cache@v4
@@ -62,11 +64,13 @@ jobs:
           restore-keys: |
             sam2-${{ runner.os }}-
 
-      - name: Install system dependencies (ffmpeg)
+      - name: Download static ffmpeg (mirror of build_app.sh)
         run: |
-          brew update
-          brew install ffmpeg
-          ffmpeg -version | head -1
+          mkdir -p /tmp/ffmpeg-bundle
+          curl -fsSL -o /tmp/ffmpeg-bundle/ff.zip \
+              https://evermeet.cx/ffmpeg/getrelease/zip
+          unzip -q /tmp/ffmpeg-bundle/ff.zip -d /tmp/ffmpeg-bundle
+          /tmp/ffmpeg-bundle/ffmpeg -version | head -1
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -88,6 +92,17 @@ jobs:
           fi
           "$VENV_DIR/bin/python" --version
           "$VENV_DIR/bin/python" -c "import torch, transformers, cv2, PIL, sam2; print('all imports OK')"
+
+      - name: bundle_weights.py — verify produces complete tree
+        env:
+          REALPET_VENV: ${{ runner.temp }}/realpet-venv
+        run: |
+          VENV_DIR="${REALPET_VENV}"
+          BUNDLE_OUT="${{ runner.temp }}/bundle-verify"
+          rm -rf "$BUNDLE_OUT"
+          "$VENV_DIR/bin/pip" install -q huggingface_hub
+          "$VENV_DIR/bin/python" scripts/bundle_weights.py --out "$BUNDLE_OUT" --force
+          "$VENV_DIR/bin/python" scripts/bundle_weights.py --out "$BUNDLE_OUT" --verify-only
 
       - name: download_weights.py — assert SAM2 + BiRefNet ready
         env:
