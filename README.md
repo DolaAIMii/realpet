@@ -21,8 +21,30 @@ RealPet uses SAM2 video tracking + BiRefNet matting to extract your pet from any
 
 ## Requirements
 
-- macOS 14.0+ (Sonoma)
+- macOS 14.0+ (Sonoma), Apple Silicon recommended
 - ~3 GB free disk space (bundled model weights + extracted frames)
+- **Python 3.10 or newer** — used to run the AI pipeline
+- Internet connection **on first launch only** — to install Python packages from PyPI (model weights and ffmpeg are already bundled, so no model downloads)
+
+### What you need to install first
+
+The app bundles everything except a Python interpreter. On first launch, a setup
+wizard creates the Python environment for you — but you must have **Python 3.10+**
+installed. macOS ships with an older Python (3.9), which is **not** sufficient.
+
+If you don't already have Python 3.10+, install it with [Homebrew](https://brew.sh)
+(no `sudo` needed on Apple Silicon):
+
+```bash
+# If you don't have Homebrew yet, install it first:
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Then install Python:
+brew install python@3.12
+```
+
+The first-launch wizard also shows these exact commands if it can't find a suitable
+Python, so you can copy-paste them at that point and click **Retry**.
 
 > **⚠️ Windows is not supported.** The app uses Swift/AppKit/SwiftUI and Apple's Metal GPU framework (MPS). The Python pipeline could theoretically run on other platforms, but the desktop app requires macOS.
 
@@ -60,9 +82,10 @@ RealPet runs real-time AI models (SAM2 tracking + BiRefNet matting + Faster R-CN
 
 ## Quick Start
 
+0. Make sure **Python 3.10+** is installed (see [What you need to install first](#what-you-need-to-install-first)). This is the only prerequisite.
 1. Download `RealPet.dmg` from the [latest release](https://github.com/DolaAIMii/realpet/releases/latest).
 2. Double-click the DMG and drag `RealPet.app` to `/Applications`.
-3. Launch from `/Applications`. First run sets up Python (~2 minutes, one-time).
+3. Launch from `/Applications` (right-click → Open the first time — the app is ad-hoc signed). First run sets up Python (~2 minutes, one-time).
 
 Import a video of your pet through the app's Import button, and RealPet will extract, segment, and display it as a desktop companion.
 
