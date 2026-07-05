@@ -52,8 +52,10 @@ Python, so you can copy-paste them at that point and click **Retry**.
 
 | Date | macOS | Chip | Memory | Notes |
 |------|-------|------|--------|-------|
-| 2026-06-28 | 14.3.1 | Apple M2 Pro | 16 GB | v0.2.0 clean-machine fresh-clone verify; all weights bundled. |
+| 2026-06-28 | 14.3.1 | Apple M2 Pro | 16 GB | v0.2.1: first-launch install verified end-to-end (venv + pip + offline weight load, ~71s). GUI import-video flow not yet run on a clean machine. |
 | 2026-06-27 | 14.3.1 | Apple M2 Pro | 16 GB | Agent-verified on maintainer's machine; not a clean-machine fresh-clone. See `docs/RELEASE.md` for the reproducibility protocol. |
+
+> **v0.2.0 was broken** — the `.app` did not bundle the Python pipeline source or `requirements.txt`, so first launch could not complete. Fixed in v0.2.1. Do not use the v0.2.0 DMG.
 
 ### Performance Recommendations
 
