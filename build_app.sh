@@ -73,6 +73,19 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << 'PLIST'
 </plist>
 PLIST
 
+# --- Bundle Python pipeline source (required at runtime) ---
+# PythonBridge.projectRoot locates the pipeline by finding a `pipeline/`
+# directory under Resources; SetupWizard reads `requirements.txt` from the
+# bundle. Without these the installed .app cannot run the pipeline and the
+# first-launch wizard aborts.
+RES_DIR="$APP_BUNDLE/Contents/Resources"
+for src in pipeline scripts; do
+    rsync -a --exclude '__pycache__' --exclude '*.pyc' \
+        "$SCRIPT_DIR/$src/" "$RES_DIR/$src/"
+done
+cp "$SCRIPT_DIR/requirements.txt" "$RES_DIR/requirements.txt"
+ok "Bundled Python pipeline source (pipeline/, scripts/, requirements.txt)"
+
 # --- Bundle all model weights (NEW v0.2.0) ---
 WEIGHTS_DIR="$SCRIPT_DIR/weights"
 if [ ! -d "$WEIGHTS_DIR/sam2" ] || [ ! -d "$WEIGHTS_DIR/hf" ] \
