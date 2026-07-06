@@ -9,6 +9,8 @@ name: install-verify
 # - .to("mps") hardcoded crashes on Intel Macs / CI (no MPS)
 # - Swift build breaks
 # - `--help` regresses behind a weight check
+# - build_app.sh assembling an .app with missing Resources (the v0.2.0
+#   broken-DMG bug: pipeline/, scripts/, requirements.txt not bundled)
 #
 # Design notes:
 # - macos-14 has no MPS acceleration; smoke must work on CPU too.
@@ -129,6 +131,37 @@ jobs:
           cd RealPet
           rm -rf .build/arm64-apple-macosx/release .build/release  # force real build, not cache
           swift build -c release
+
+      - name: Build .app (stub weights) and verify bundle contents
+        # Regression gate for the v0.2.0 broken-DMG class of bug: build_app.sh
+        # assembled an .app missing pipeline/, scripts/, requirements.txt
+        # (fixed in dca3d85) and CI stayed green because nothing ever checked
+        # the bundle. --stub-weights skips the ~1.1 GB weight download but
+        # runs every other assembly step for real.
+        run: |
+          bash build_app.sh --stub-weights
+          RES="dist/RealPet.app/Contents/Resources"
+          missing=0
+          for p in \
+            "$RES/requirements.txt" \
+            "$RES/pipeline/segment.py" \
+            "$RES/scripts/track_then_matte.py" \
+            "$RES/scripts/daemon.py" \
+            "$RES/bin/ffmpeg" \
+            "$RES/weights/sam2" \
+            "$RES/weights/hf" \
+            "$RES/weights/torch" \
+            "dist/RealPet.app/Contents/MacOS/RealPet" \
+            "dist/RealPet.app/Contents/Info.plist"; do
+            if [ -e "$p" ]; then
+              echo "OK: $p"
+            else
+              echo "::error::Missing from .app bundle: $p"
+              missing=1
+            fi
+          done
+          [ -x "$RES/bin/ffmpeg" ] || { echo "::error::bin/ffmpeg is not executable"; missing=1; }
+          exit "$missing"
 
       - name: track_then_matte.py --help (must work without weights)
         env:
