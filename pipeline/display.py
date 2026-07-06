@@ -15,6 +15,7 @@ from Cocoa import (
     NSMakeRect, NSMakePoint, NSSize,
     NSTrackingMouseEnteredAndExited, NSTrackingActiveInActiveApp,
     NSTrackingInVisibleRect,
+    NSApplicationActivationPolicyAccessory,
 )
 
 
@@ -723,8 +724,11 @@ def display_frames(frame_paths, fps=24, window_size=None, alpha=1.0):
         print("  No frames to display.")
         return
 
-    # Initialize NSApplication
+    # Initialize NSApplication as an accessory (background) app: still creates
+    # and drives real NSWindows (drag, floating level, per-pixel alpha) but
+    # skips the Dock tile / Cmd-Tab entry a foreground app would get.
     NSApplication.sharedApplication()
+    NSApp.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 
     pet = DesktopPet(frame_paths, fps=fps, window_size=window_size, alpha=alpha)
     pet.run()
