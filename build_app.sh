@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# --stub-weights: skip the ~1.1 GB weight download and bundle empty
+# placeholder weights/{sam2,hf,torch} dirs instead. For CI structural
+# verification of the .app bundle only — never ship a stubbed build.
+STUB_WEIGHTS=0
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --stub-weights) STUB_WEIGHTS=1 ;;
+        *) echo "Unknown option: $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="RealPet"
 BUILD_DIR="$SCRIPT_DIR/RealPet/.build/release"
@@ -69,9 +81,15 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << 'PLIST'
     <true/>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.entertainment</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
 </dict>
 </plist>
 PLIST
+
+# --- App icon ---
+cp "$SCRIPT_DIR/assets/icon/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+ok "Bundled app icon"
 
 # --- Bundle Python pipeline source (required at runtime) ---
 # PythonBridge.projectRoot locates the pipeline by finding a `pipeline/`
@@ -88,7 +106,16 @@ ok "Bundled Python pipeline source (pipeline/, scripts/, requirements.txt)"
 
 # --- Bundle all model weights (NEW v0.2.0) ---
 WEIGHTS_DIR="$SCRIPT_DIR/weights"
-if [ ! -d "$WEIGHTS_DIR/sam2" ] || [ ! -d "$WEIGHTS_DIR/hf" ] \
+if [ "$STUB_WEIGHTS" = "1" ]; then
+    # Placeholder tree in a temp dir so the repo's real weights/ is untouched
+    echo "--- Stubbing model weights (--stub-weights) ---"
+    WEIGHTS_DIR="$(mktemp -d)/weights"
+    for d in sam2 hf torch; do
+        mkdir -p "$WEIGHTS_DIR/$d"
+        touch "$WEIGHTS_DIR/$d/.stub-weights-ci-only"
+    done
+    ok "Stub weights created (structural check only, app will NOT run)"
+elif [ ! -d "$WEIGHTS_DIR/sam2" ] || [ ! -d "$WEIGHTS_DIR/hf" ] \
    || [ ! -d "$WEIGHTS_DIR/torch" ]; then
     echo "--- Bundling model weights (first build, downloads ~1 GB) ---"
     # 用临时 venv 跑 bundle_weights.py(避免要求 build 机器已装 pip)
