@@ -698,6 +698,13 @@ class DesktopPet:
     def tick(self):
         self.view.next_frame()
 
+    def checkParent(self):
+        # Pet windows must not outlive the app that launched them. Graceful
+        # quit SIGTERMs us, but a crash / force-quit / missed callback leaves
+        # us orphaned and reparented to launchd (ppid 1) — exit then.
+        if os.getppid() == 1:
+            os._exit(0)
+
     def run(self):
         print("  Desktop pet running. Drag to move, right-corner resize, top-right X to close.")
 
@@ -705,6 +712,10 @@ class DesktopPet:
         from Foundation import NSTimer as FT
         self.timer = FT.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
             self.delay, self, "tick", None, True
+        )
+        # Parent-death watchdog (see checkParent)
+        self._parent_watchdog = FT.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+            2.0, self, "checkParent", None, True
         )
 
         # Run the Cocoa event loop
