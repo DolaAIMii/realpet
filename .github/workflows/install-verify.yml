@@ -73,6 +73,10 @@ jobs:
               https://evermeet.cx/ffmpeg/getrelease/zip
           unzip -q /tmp/ffmpeg-bundle/ff.zip -d /tmp/ffmpeg-bundle
           /tmp/ffmpeg-bundle/ffmpeg -version | head -1
+          # install.sh probes `command -v ffmpeg`; without this the whole
+          # workflow dies at the dependency check (6 straight red runs
+          # since 688bfe6 dropped `brew install ffmpeg`).
+          echo "/tmp/ffmpeg-bundle" >> "$GITHUB_PATH"
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
